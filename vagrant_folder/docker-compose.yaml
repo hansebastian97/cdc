@@ -1,0 +1,56 @@
+services:
+  zookeeper:
+    image: quay.io/debezium/zookeeper:2.7
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+      - "2888:2888"
+      - "3888:3888"
+    network_mode: bridge
+  kafka:
+    image: quay.io/debezium/kafka:2.7
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    links:
+      - zookeeper:zookeeper
+    network_mode: bridge
+  mysql:
+    image: quay.io/debezium/example-mysql:2.7
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: debezium
+      MYSQL_USER: mysqluser
+      MYSQL_PASSWORD: mysqlpw
+    ports:
+      - "3306:3306"
+    depends_on:
+      - kafka
+    network_mode: bridge
+  connect:
+    image: quay.io/debezium/connect:2.7
+    container_name: connect
+    environment:
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: my_connect_configs
+      OFFSET_STORAGE_TOPIC: my_connect_offsets
+      STATUS_STORAGE_TOPIC: my_connect_statuses
+    ports:
+      - "8083:8083"
+    links:
+      - mysql:mysql
+      - kafka:kafka
+    network_mode: bridge
+    # entrypoint: >
+    #   curl -i -X POST -H "Accept:application/json" -H "Content-Type:application/json" localhost:8083/connectors/ -d '{ "name": "inventory-connector", "config": { "connector.class": "io.debezium.connector.mysql.MySqlConnector", "tasks.max": "1", "database.hostname": "mysql", "database.port": "3306", "database.user": "debezium", "database.password": "dbz", "database.server.id": "184054", "topic.prefix": "dbserver1", "database.include.list": "inventory", "schema.history.internal.kafka.bootstrap.servers": "kafka:9092", "schema.history.internal.kafka.topic": "schemahistory.inventory" } }'
+# networks:
+#   cdc:
+#     name: cdc
+#     driver: bridge
+#     options:
+#       com.docker.network.bridge.default_bridge": "true"
+#       com.docker.network.bridge.enable_icc": "true"
+#       com.docker.network.bridge.enable_ip_masquerade": "true"
+#       com.docker.network.bridge.host_binding_ipv4": "0.0.0.0"
+#       com.docker.network.bridge.name": "docker0"
+#       com.docker.network.driver.mtu": "1500"
